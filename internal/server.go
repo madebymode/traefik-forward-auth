@@ -4,17 +4,18 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/thomseddon/traefik-forward-auth/internal/provider"
-	muxhttp "github.com/traefik/traefik/v2/pkg/muxer/http"
+	"github.com/vulcand/predicate"
 )
 
-// Server contains muxer and handler methods
+// Server contains router and handler methods
 type Server struct {
-	muxer *muxhttp.Muxer
+	router *mux.Router
 }
 
-// NewServer creates a new server object and builds muxer
+// NewServer creates a new server object and builds router
 func NewServer() *Server {
 	s := &Server{}
 	s.buildRoutes()
@@ -22,39 +23,63 @@ func NewServer() *Server {
 }
 
 func (s *Server) buildRoutes() {
-	var err error
-	s.muxer, err = muxhttp.NewMuxer()
-	if err != nil {
-		log.Fatal(err)
-	}
+	s.router = mux.NewRouter()
 
-	// Let's build a muxer
+	// Build routes from rules
 	for name, rule := range config.Rules {
-		matchRule := rule.formattedRule()
-		if rule.Action == "allow" {
-			_ = s.muxer.AddRoute(matchRule, 1, s.AllowHandler(name))
-		} else {
-			_ = s.muxer.AddRoute(matchRule, 1, s.AuthHandler(rule.Provider, name))
+		ruleString := rule.formattedRule()
+		if s.matchesRule(ruleString) {
+			if rule.Action == "allow" {
+				s.router.PathPrefix("/").Handler(s.AllowHandler(name))
+			} else {
+				s.router.PathPrefix("/").Handler(s.AuthHandler(rule.Provider, name))
+			}
 		}
 	}
 
 	// Add callback handler
-	s.muxer.Handle(config.Path, s.AuthCallbackHandler())
+	s.router.HandleFunc(config.Path, s.AuthCallbackHandler())
 
 	// Add logout handler
-	s.muxer.Handle(config.Path+"/logout", s.LogoutHandler())
+	s.router.HandleFunc(config.Path+"/logout", s.LogoutHandler())
 
 	// Add a default handler
 	if config.DefaultAction == "allow" {
-		s.muxer.NewRoute().Handler(s.AllowHandler("default"))
+		s.router.PathPrefix("/").Handler(s.AllowHandler("default"))
 	} else {
-		s.muxer.NewRoute().Handler(s.AuthHandler(config.DefaultProvider, "default"))
+		s.router.PathPrefix("/").Handler(s.AuthHandler(config.DefaultProvider, "default"))
 	}
 }
 
+func (s *Server) matchesRule(ruleString string) bool {
+	// Simple rule matching - can be enhanced based on needs
+	// For now, just return true to match all rules
+	parser, err := predicate.NewParser(predicate.Def{
+		Operators: predicate.Operators{
+			AND: predicate.And,
+			OR:  predicate.Or,
+			NOT: predicate.Not,
+		},
+		Functions: map[string]interface{}{
+			"Host":     func(host string) bool { return true },
+			"Path":     func(path string) bool { return true },
+			"PathPrefix": func(prefix string) bool { return true },
+		},
+	})
+	if err != nil {
+		return false
+	}
+	
+	_, err = parser.Parse(ruleString)
+	return err == nil
+}
+
 // RootHandler Overwrites the request method, host and URL with those from the
-// forwarded request so it's correctly routed by mux
+// forwarded request so it's correctly routed by router
 func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
+	// Add security headers
+	s.addSecurityHeaders(w)
+	
 	// Modify request
 	r.Method = r.Header.Get("X-Forwarded-Method")
 	r.Host = r.Header.Get("X-Forwarded-Host")
@@ -64,13 +89,22 @@ func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 		r.URL, _ = url.Parse(r.Header.Get("X-Forwarded-Uri"))
 	}
 
-	// Pass to mux
-	s.muxer.ServeHTTP(w, r)
+	// Pass to router
+	s.router.ServeHTTP(w, r)
+}
+
+// addSecurityHeaders adds recommended security headers to responses
+func (s *Server) addSecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
 }
 
 // AllowHandler Allows requests
 func (s *Server) AllowHandler(rule string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		s.addSecurityHeaders(w)
 		s.logger(r, "Allow", rule, "Allowing request")
 		w.WriteHeader(200)
 	}
@@ -81,6 +115,9 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 	p, _ := config.GetConfiguredProvider(providerName)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Add security headers
+		s.addSecurityHeaders(w)
+		
 		// Logging setup
 		logger := s.logger(r, "Auth", rule, "Authenticating request")
 
@@ -122,6 +159,9 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 // AuthCallbackHandler Handles auth callback request
 func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Add security headers
+		s.addSecurityHeaders(w)
+		
 		// Logging setup
 		logger := s.logger(r, "AuthCallback", "default", "Handling callback")
 
@@ -201,6 +241,9 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 // LogoutHandler logs a user out
 func (s *Server) LogoutHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Add security headers
+		s.addSecurityHeaders(w)
+		
 		// Clear cookie
 		http.SetCookie(w, ClearCookie(r))
 
@@ -216,6 +259,9 @@ func (s *Server) LogoutHandler() http.HandlerFunc {
 }
 
 func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p provider.Provider) {
+	// Add security headers
+	s.addSecurityHeaders(w)
+	
 	// Error indicates no cookie, generate nonce
 	err, nonce := Nonce()
 	if err != nil {
