@@ -3,6 +3,15 @@ name: Release
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build release for'
+        required: true
+        type: string
 
 jobs:
 
@@ -26,7 +35,12 @@ jobs:
       run: CGO_ENABLED=0 GOOS=linux GOARCH=arm GO111MODULE=on go build -a -installsuffix nocgo -v -o traefik-forward-auth_arm ./cmd
 
     - name: Get tag name
-      run: echo "TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+        else
+          echo "TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        fi
 
     - name: Get artifact details
       uses: octokit/request-action@v2.3.1
