@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/madebymode/traefik-forward-auth/internal/provider"
+	"github.com/stretchr/testify/assert"
 )
 
 /**

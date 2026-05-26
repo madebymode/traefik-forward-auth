@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/madebymode/traefik-forward-auth/internal/provider"
+	"github.com/sirupsen/logrus"
 	muxhttp "github.com/traefik/traefik/v2/pkg/muxer/http"
 )
 
