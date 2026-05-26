@@ -3,6 +3,7 @@ package tfa
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thomseddon/traefik-forward-auth/internal/provider"
@@ -120,6 +121,21 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 }
 
 // AuthCallbackHandler Handles auth callback request
+func sanitizeLocalRedirect(target string) (string, error) {
+	normalized := strings.ReplaceAll(target, "\\", "/")
+	u, err := url.Parse(normalized)
+	if err != nil {
+		return "", err
+	}
+
+	// Only allow local absolute-path redirects
+	if u.Hostname() != "" || !strings.HasPrefix(u.Path, "/") {
+		return "", url.InvalidHostError(u.Host)
+	}
+
+	return u.String(), nil
+}
+
 func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Logging setup
@@ -185,16 +201,26 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			return
 		}
 
+		safeRedirect, err := sanitizeLocalRedirect(redirect)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"error":    err,
+				"redirect": redirect,
+			}).Warn("Invalid redirect target")
+			http.Error(w, "Invalid redirect", 400)
+			return
+		}
+
 		// Generate cookie
 		http.SetCookie(w, MakeCookie(r, user.Email))
 		logger.WithFields(logrus.Fields{
 			"provider": providerName,
-			"redirect": redirect,
+			"redirect": safeRedirect,
 			"user":     user.Email,
 		}).Info("Successfully generated auth cookie, redirecting user.")
 
 		// Redirect
-		http.Redirect(w, r, redirect, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, safeRedirect, http.StatusTemporaryRedirect)
 	}
 }
 
