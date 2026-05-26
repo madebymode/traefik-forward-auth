@@ -197,16 +197,22 @@ func TestServerAuthCallback(t *testing.T) {
 	res, _ = doHttpRequest(req, c)
 	assert.Equal(401, res.StatusCode, "auth callback with invalid provider shouldn't be authorised")
 
-	// Should redirect valid request
+	// Should reject non-local redirects
 	req = newHTTPRequest("GET", "http://example.com/_oauth?state="+nonce+":google:http://redirect")
+	c = MakeCSRFCookie(req, nonce)
+	res, _ = doHttpRequest(req, c)
+	require.Equal(400, res.StatusCode, "auth callback should reject non-local redirects")
+
+	// Should redirect valid local request
+	req = newHTTPRequest("GET", "http://example.com/_oauth?state="+nonce+":google:/redirect")
 	c = MakeCSRFCookie(req, nonce)
 	res, _ = doHttpRequest(req, c)
 	require.Equal(307, res.StatusCode, "valid auth callback should be allowed")
 
 	fwd, _ := res.Location()
-	assert.Equal("http", fwd.Scheme, "valid request should be redirected to return url")
-	assert.Equal("redirect", fwd.Host, "valid request should be redirected to return url")
-	assert.Equal("", fwd.Path, "valid request should be redirected to return url")
+	assert.Equal("", fwd.Scheme, "valid request should be redirected to local return url")
+	assert.Equal("", fwd.Host, "valid request should be redirected to local return url")
+	assert.Equal("/redirect", fwd.Path, "valid request should be redirected to local return url")
 }
 
 func TestServerAuthCallbackExchangeFailure(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	internal "github.com/thomseddon/traefik-forward-auth/internal"
+	internal "github.com/madebymode/traefik-forward-auth/internal"
 )
 
 // Main
