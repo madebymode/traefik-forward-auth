@@ -34,6 +34,8 @@ services:
       - INSECURE_COOKIE=true
       - COOKIE_DOMAIN=localhost.com
       - AUTH_HOST=auth.localhost.com:8085
+      # Allow callback redirects to other trusted hosts when using an auth host
+      - REDIRECT_DOMAIN=localhost.com
       - LOG_LEVEL=debug
     labels:
       - "traefik.http.routers.traefik-forward-auth.rule=Host(`auth.localhost.com`)"

@@ -36,6 +36,8 @@ services:
       - INSECURE_COOKIE=true
       - DOMAIN=yourcompany.com
       - AUTH_HOST=auth.yourdomain.com
+      # Allow callback redirects to other trusted hosts when using an auth host
+      - REDIRECT_DOMAIN=yourdomain.com
     networks:
       - traefik
     # When using an auth host, the below must be added
