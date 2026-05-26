@@ -20,7 +20,12 @@ services:
       - "traefik.http.routers.whoami.rule=Host(`whoami.localhost.com`)"
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:2
+    image: ghcr.io/madebymode/traefik-forward-auth:3
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PROVIDERS_GOOGLE_CLIENT_ID=your-client-id
       - PROVIDERS_GOOGLE_CLIENT_SECRET=your-client-secret

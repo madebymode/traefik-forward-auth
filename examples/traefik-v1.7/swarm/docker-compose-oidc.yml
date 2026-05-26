@@ -23,7 +23,12 @@ services:
       - "traefik.frontend.rule=Host:whoami.localhost.com"
 
   traefik-forward-auth:
-    build: thomseddon/traefik-forward-auth:2
+    image: ghcr.io/madebymode/traefik-forward-auth:3
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - DEFAULT_PROVIDER=oidc
       - PROVIDERS_OIDC_ISSUER_URL=https://login.microsoftonline.com/{tenant}

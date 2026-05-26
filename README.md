@@ -1,8 +1,10 @@
 
-# Traefik Forward Auth ![Build Status](https://img.shields.io/github/workflow/status/thomseddon/traefik-forward-auth/CI) [![Go Report Card](https://goreportcard.com/badge/github.com/thomseddon/traefik-forward-auth)](https://goreportcard.com/report/github.com/thomseddon/traefik-forward-auth) ![Docker Pulls](https://img.shields.io/docker/pulls/thomseddon/traefik-forward-auth.svg) [![GitHub release](https://img.shields.io/github/release/thomseddon/traefik-forward-auth.svg)](https://GitHub.com/thomseddon/traefik-forward-auth/releases/)
+# Traefik Forward Auth [![CI](https://github.com/madebymode/traefik-forward-auth/actions/workflows/ci.yml/badge.svg)](https://github.com/madebymode/traefik-forward-auth/actions/workflows/ci.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/thomseddon/traefik-forward-auth)](https://goreportcard.com/report/github.com/thomseddon/traefik-forward-auth) [![GitHub release](https://img.shields.io/github/release/madebymode/traefik-forward-auth.svg)](https://github.com/madebymode/traefik-forward-auth/releases/)
 
 
 A minimal forward authentication service that provides OAuth/SSO login and authentication for the [traefik](https://github.com/containous/traefik) reverse proxy/load balancer.
+
+The service works with Traefik v3 `ForwardAuth` middleware. The examples here still include older Traefik layouts for compatibility, but the auth container itself now defaults to a non-root, read-only-friendly runtime.
 
 ## Why?
 
@@ -41,13 +43,13 @@ A minimal forward authentication service that provides OAuth/SSO login and authe
 
 ## Releases
 
-We recommend using the `2` tag on docker hub (`thomseddon/traefik-forward-auth:2`).
+We recommend using the `3` tag from GitHub Container Registry: `ghcr.io/madebymode/traefik-forward-auth:3`.
 
-You can also use the latest incremental releases found on [docker hub](https://hub.docker.com/r/thomseddon/traefik-forward-auth/tags) and [github](https://github.com/thomseddon/traefik-forward-auth/releases).
+Release images are published to `ghcr.io/madebymode/traefik-forward-auth` from GitHub Actions.
 
-ARM releases are also available on docker hub, just append `-arm` or `-arm64` to your desired released (e.g. `2-arm` or `2.1-arm64`).
+Multi-architecture images are published under the same tag for `linux/amd64` and `linux/arm64`; there are no separate `-arm` or `-arm64` tags.
 
-We also build binary files for usage without docker starting with releases after 2.2.0 You can find these as assets of the specific GitHub release.
+We also build binary files for usage without Docker starting with releases after 2.2.0. You can find these as assets of the specific GitHub release.
 
 #### Upgrade Guide
 
@@ -74,7 +76,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:2
+    image: ghcr.io/madebymode/traefik-forward-auth:3
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PROVIDERS_GOOGLE_CLIENT_ID=your-client-id
       - PROVIDERS_GOOGLE_CLIENT_SECRET=your-client-secret
@@ -97,6 +104,16 @@ services:
 Please see the examples directory for a more complete [docker-compose.yml](https://github.com/thomseddon/traefik-forward-auth/blob/master/examples/traefik-v2/swarm/docker-compose.yml) or [kubernetes/simple-separate-pod](https://github.com/thomseddon/traefik-forward-auth/blob/master/examples/traefik-v2/kubernetes/simple-separate-pod/).
 
 Also in the examples directory is [docker-compose-auth-host.yml](https://github.com/thomseddon/traefik-forward-auth/blob/master/examples/traefik-v2/swarm/docker-compose-auth-host.yml) and [kubernetes/advanced-separate-pod](https://github.com/thomseddon/traefik-forward-auth/blob/master/examples/traefik-v2/kubernetes/advanced-separate-pod/) which shows how to configure a central auth host, along with some other options.
+
+#### Container Hardening
+
+The published container runs as UID/GID `65532` and does not require root access or a writable root filesystem. For production deployments, prefer the following runtime restrictions where your platform supports them:
+
+- `readOnlyRootFilesystem: true` / `read_only: true`
+- `allowPrivilegeEscalation: false`
+- Drop all Linux capabilities
+- `seccompProfile: RuntimeDefault`
+- `runAsNonRoot: true`
 
 #### Provider Setup
 
@@ -407,7 +424,7 @@ Note: Traefik prepends the namespace to the name of middleware defined via a kub
 If you choose not to enable forward authentication for a specific entrypoint, you can apply the middleware to selected ingressroutes:
 
 ```yaml
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: whoami

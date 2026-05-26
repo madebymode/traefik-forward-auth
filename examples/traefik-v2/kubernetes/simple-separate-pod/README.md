@@ -6,7 +6,7 @@ This is a simple example of how to deploy traefik-forward-auth in it's own pod w
 This example uses [Selective Authentication](https://github.com/thomseddon/traefik-forward-auth/blob/master/README.md#selective-ingress-authentication-in-kubernetes) to apply forward authentication to selected ingresses. This means ingresses will not be protected by default. Authentication can be applied by adding the `traefik-forward-auth` middleware, for example:
 
 ```
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: whoami

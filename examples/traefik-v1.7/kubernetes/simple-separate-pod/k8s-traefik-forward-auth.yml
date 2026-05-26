@@ -20,9 +20,21 @@ spec:
         app: traefik-forward-auth
     spec:
       terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-      - image: thomseddon/traefik-forward-auth:2
+      - image: ghcr.io/madebymode/traefik-forward-auth:3
         name: traefik-forward-auth
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          capabilities:
+            drop:
+            - ALL
         ports:
         - containerPort: 4181
           protocol: TCP

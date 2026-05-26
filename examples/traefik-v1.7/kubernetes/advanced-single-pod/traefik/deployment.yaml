@@ -21,6 +21,10 @@ spec:
     spec:
       serviceAccountName: traefik
       terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - image: traefik:1.7.12
         name: traefik
@@ -42,8 +46,16 @@ spec:
         - mountPath: /acme
           name: acme
 
-      - image: thomseddon/traefik-forward-auth:2
+      - image: ghcr.io/madebymode/traefik-forward-auth:3
         name: traefik-forward-auth
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          capabilities:
+            drop:
+            - ALL
         ports:
         - containerPort: 4181
           protocol: TCP

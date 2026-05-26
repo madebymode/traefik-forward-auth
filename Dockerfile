@@ -1,18 +1,29 @@
-FROM golang:1.25-alpine as builder
+# syntax=docker/dockerfile:1.7
 
-# Setup
-RUN mkdir -p /go/src/github.com/thomseddon/traefik-forward-auth
-WORKDIR /go/src/github.com/thomseddon/traefik-forward-auth
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 
-# Add libraries
-RUN apk add --no-cache git
+ARG TARGETOS
+ARG TARGETARCH
 
-# Copy & build
-ADD . /go/src/github.com/thomseddon/traefik-forward-auth/
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -installsuffix nocgo -o /traefik-forward-auth github.com/thomseddon/traefik-forward-auth/cmd
+WORKDIR /src
 
-# Copy into scratch container
+RUN apk add --no-cache ca-certificates git
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+	go build -trimpath -ldflags="-s -w" -o /out/traefik-forward-auth ./cmd
+
 FROM scratch
+
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /traefik-forward-auth ./
-ENTRYPOINT ["./traefik-forward-auth"]
+COPY --from=builder --chown=65532:65532 /out/traefik-forward-auth /traefik-forward-auth
+
+USER 65532:65532
+WORKDIR /
+EXPOSE 4181
+
+ENTRYPOINT ["/traefik-forward-auth"]

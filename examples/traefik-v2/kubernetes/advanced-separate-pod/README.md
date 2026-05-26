@@ -5,7 +5,7 @@ This is an advanced example of how to deploy traefik-forward-auth in it's own po
 This example uses [Selective Authentication](https://github.com/thomseddon/traefik-forward-auth/blob/master/README.md#selective-ingress-authentication-in-kubernetes) to selectively apply forward authentication to each selective ingresses, for example:
 
 ```
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: whoami
