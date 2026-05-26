@@ -95,7 +95,7 @@ func NewConfig(args []string) (*Config, error) {
 		}
 	}
 
-	// Backwards compatability
+	// Backwards compatibility
 	if c.CookieSecretLegacy != "" && c.SecretString == "" {
 		fmt.Println("cookie-secret config option is deprecated, please use secret")
 		c.SecretString = c.CookieSecretLegacy

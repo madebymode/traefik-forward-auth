@@ -370,7 +370,7 @@ func (c *CookieDomain) MarshalFlag() (string, error) {
 	return c.Domain, nil
 }
 
-// CookieDomains provides legacy sypport for comma separated list of cookie domains
+// CookieDomains provides legacy support for comma separated list of cookie domains
 type CookieDomains []CookieDomain
 
 // UnmarshalFlag converts a comma separated list of cookie domains to an array
@@ -385,7 +385,7 @@ func (c *CookieDomains) UnmarshalFlag(value string) error {
 	return nil
 }
 
-// MarshalFlag converts an array of CookieDomain to a comma seperated list
+// MarshalFlag converts an array of CookieDomain to a comma separated list
 func (c *CookieDomains) MarshalFlag() (string, error) {
 	var domains []string
 	for _, d := range *c {
