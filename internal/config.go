@@ -37,6 +37,7 @@ type Config struct {
 	LogoutRedirect         string               `long:"logout-redirect" env:"LOGOUT_REDIRECT" description:"URL to redirect to following logout"`
 	MatchWhitelistOrDomain bool                 `long:"match-whitelist-or-domain" env:"MATCH_WHITELIST_OR_DOMAIN" description:"Allow users that match *either* whitelist or domain (enabled by default in v3)"`
 	Path                   string               `long:"url-path" env:"URL_PATH" default:"/_oauth" description:"Callback URL Path"`
+	RedirectDomains        CommaSeparatedList   `long:"redirect-domain" env:"REDIRECT_DOMAIN" env-delim:"," description:"Allow absolute redirects to hosts matching these domains, can be set multiple times"`
 	SecretString           string               `long:"secret" env:"SECRET" description:"Secret used for signing (required)" json:"-"`
 	Whitelist              CommaSeparatedList   `long:"whitelist" env:"WHITELIST" env-delim:"," description:"Only allow given email addresses, can be set multiple times"`
 	Port                   int                  `long:"port" env:"PORT" default:"4181" description:"Port to listen on"`

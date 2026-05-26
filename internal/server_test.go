@@ -203,13 +203,26 @@ func TestServerAuthCallback(t *testing.T) {
 	res, _ = doHttpRequest(req, c)
 	require.Equal(400, res.StatusCode, "auth callback should reject non-local redirects")
 
+	// Should allow configured absolute redirects
+	config.RedirectDomains = []string{"allowed.example.test"}
+	req = newHTTPRequest("GET", "http://example.com/_oauth?state="+nonce+":google:https://service.customer.allowed.example.test/redirect")
+	c = MakeCSRFCookie(req, nonce)
+	res, _ = doHttpRequest(req, c)
+	require.Equal(307, res.StatusCode, "auth callback should allow configured absolute redirects")
+
+	fwd, _ := res.Location()
+	assert.Equal("https", fwd.Scheme, "valid request should be redirected to configured absolute return url")
+	assert.Equal("service.customer.allowed.example.test", fwd.Host, "valid request should be redirected to configured absolute return url")
+	assert.Equal("/redirect", fwd.Path, "valid request should be redirected to configured absolute return url")
+
 	// Should redirect valid local request
+	config.RedirectDomains = nil
 	req = newHTTPRequest("GET", "http://example.com/_oauth?state="+nonce+":google:/redirect")
 	c = MakeCSRFCookie(req, nonce)
 	res, _ = doHttpRequest(req, c)
 	require.Equal(307, res.StatusCode, "valid auth callback should be allowed")
 
-	fwd, _ := res.Location()
+	fwd, _ = res.Location()
 	assert.Equal("", fwd.Scheme, "valid request should be redirected to local return url")
 	assert.Equal("", fwd.Host, "valid request should be redirected to local return url")
 	assert.Equal("/redirect", fwd.Path, "valid request should be redirected to local return url")

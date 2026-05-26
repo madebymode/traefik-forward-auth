@@ -10,6 +10,16 @@ import (
 	muxhttp "github.com/traefik/traefik/v2/pkg/muxer/http"
 )
 
+func hostMatchesRedirectDomain(host, domain string) bool {
+	host = strings.ToLower(host)
+	domain = strings.ToLower(strings.TrimPrefix(domain, "."))
+	if host == domain {
+		return true
+	}
+
+	return strings.HasSuffix(host, "."+domain)
+}
+
 // Server contains muxer and handler methods
 type Server struct {
 	muxer *muxhttp.Muxer
@@ -129,11 +139,24 @@ func sanitizeLocalRedirect(target string) (string, error) {
 	}
 
 	// Only allow local absolute-path redirects
-	if u.Hostname() != "" || !strings.HasPrefix(u.Path, "/") {
+	if u.Hostname() == "" {
+		if !strings.HasPrefix(u.Path, "/") {
+			return "", url.InvalidHostError(u.Host)
+		}
+		return u.String(), nil
+	}
+
+	if u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return "", url.InvalidHostError(u.Host)
 	}
 
-	return u.String(), nil
+	for _, domain := range config.RedirectDomains {
+		if hostMatchesRedirectDomain(u.Hostname(), domain) {
+			return u.String(), nil
+		}
+	}
+
+	return "", url.InvalidHostError(u.Host)
 }
 
 func (s *Server) AuthCallbackHandler() http.HandlerFunc {

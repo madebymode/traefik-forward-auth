@@ -36,6 +36,7 @@ func TestConfigDefaults(t *testing.T) {
 	assert.Equal("", c.LogoutRedirect)
 	assert.False(c.MatchWhitelistOrDomain)
 	assert.Equal("/_oauth", c.Path)
+	assert.Len(c.RedirectDomains, 0)
 	assert.Len(c.Whitelist, 0)
 	assert.Equal(c.Port, 4181)
 
@@ -206,6 +207,7 @@ func TestConfigParseEnvironment(t *testing.T) {
 	os.Setenv("PROVIDERS_GOOGLE_CLIENT_ID", "env_client_id")
 	os.Setenv("COOKIE_DOMAIN", "test1.com,example.org")
 	os.Setenv("DOMAIN", "test2.com,example.org")
+	os.Setenv("REDIRECT_DOMAIN", "test4.com,example.org")
 	os.Setenv("WHITELIST", "test3.com,example.org")
 
 	c, err := NewConfig([]string{})
@@ -218,6 +220,7 @@ func TestConfigParseEnvironment(t *testing.T) {
 		*NewCookieDomain("example.org"),
 	}, c.CookieDomains, "array variable should be read from environment COOKIE_DOMAIN")
 	assert.Equal(CommaSeparatedList{"test2.com", "example.org"}, c.Domains, "array variable should be read from environment DOMAIN")
+	assert.Equal(CommaSeparatedList{"test4.com", "example.org"}, c.RedirectDomains, "array variable should be read from environment REDIRECT_DOMAIN")
 	assert.Equal(CommaSeparatedList{"test3.com", "example.org"}, c.Whitelist, "array variable should be read from environment WHITELIST")
 
 	os.Unsetenv("COOKIE_NAME")
