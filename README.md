@@ -2,9 +2,9 @@
 # Traefik Forward Auth [![CI](https://github.com/madebymode/traefik-forward-auth/actions/workflows/ci.yml/badge.svg)](https://github.com/madebymode/traefik-forward-auth/actions/workflows/ci.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/madebymode/traefik-forward-auth)](https://goreportcard.com/report/github.com/madebymode/traefik-forward-auth) [![GitHub release](https://img.shields.io/github/release/madebymode/traefik-forward-auth.svg)](https://github.com/madebymode/traefik-forward-auth/releases/)
 
 
-A minimal forward authentication service that provides OAuth/SSO login and authentication for the [traefik](https://github.com/containous/traefik) reverse proxy/load balancer.
+A minimal forward authentication service that provides OAuth/SSO login and authentication for the [traefik](https://github.com/traefik/traefik) reverse proxy/load balancer.
 
-The service works with Traefik v3 `ForwardAuth` middleware. The examples here still include older Traefik layouts for compatibility, but the auth container itself now defaults to a non-root, read-only-friendly runtime.
+The service works with Traefik v3 `ForwardAuth` middleware. The examples target Traefik v3, and the auth container defaults to a non-root, read-only-friendly runtime.
 
 ## Why?
 
@@ -68,7 +68,7 @@ version: '3'
 
 services:
   traefik:
-    image: traefik:v2.2
+    image: traefik:v3
     command: --providers.docker
     ports:
       - "8085:80"
@@ -93,7 +93,7 @@ services:
       - "traefik.http.services.traefik-forward-auth.loadbalancer.server.port=4181"
 
   whoami:
-    image: containous/whoami
+    image: traefik/whoami
     labels:
       - "traefik.http.routers.whoami.rule=Host(`whoami.mycompany.com`)"
       - "traefik.http.routers.whoami.middlewares=traefik-forward-auth"
@@ -101,9 +101,9 @@ services:
 
 #### Advanced:
 
-Please see the examples directory for a more complete [docker-compose.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/swarm/docker-compose.yml) or [kubernetes/simple-separate-pod](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/kubernetes/simple-separate-pod/).
+Please see the examples directory for a more complete [docker-compose.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/swarm/docker-compose.yml) or [kubernetes/simple-separate-pod](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/kubernetes/simple-separate-pod/).
 
-Also in the examples directory is [docker-compose-auth-host.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/swarm/docker-compose-auth-host.yml) and [kubernetes/advanced-separate-pod](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/kubernetes/advanced-separate-pod/) which shows how to configure a central auth host, along with some other options.
+Also in the examples directory is [docker-compose-auth-host.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/swarm/docker-compose-auth-host.yml) and [kubernetes/advanced-separate-pod](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/kubernetes/advanced-separate-pod/) which shows how to configure a central auth host, along with some other options.
 
 #### Container Hardening
 
@@ -306,7 +306,7 @@ All options can be supplied in any of the following ways, in the following prece
 
    When enabled, users will be permitted if they match *either* the `whitelist` or `domain` parameters.
 
-   This will be enabled by default in v3, but is disabled by default in v2 to maintain backwards compatibility.
+   Enable this when whitelist and domain checks should be combined with OR semantics rather than the default whitelist-first behavior.
 
    Default: `false`
 
@@ -345,22 +345,22 @@ All options can be supplied in any of the following ways, in the following prece
        - `provider` - same usage as [`default-provider`](#default-provider), supported values:
            - `google`
            - `oidc`
-       - `rule` - a rule to match a request, this uses traefik's v2 rule parser for which you can find the documentation here: https://docs.traefik.io/v2.0/routing/routers/#rule, supported values are summarised here:
-           - ``Headers(`key`, `value`)``
-           - ``HeadersRegexp(`key`, `regexp`)``
-           - ``Host(`example.com`, ...)``
-           - ``HostRegexp(`example.com`, `{subdomain:[a-z]+}.example.com`, ...)``
-           - ``Method(methods, ...)``
-           - ``Path(`path`, `/articles/{category}/{id:[0-9]+}`, ...)``
-           - ``PathPrefix(`/products/`, `/articles/{category}/{id:[0-9]+}`)``
-           - ``Query(`foo=bar`, `bar=baz`)``
-       - `whitelist` - optional, same usage as whitelist`](#whitelist)
+       - `rule` - a rule to match a request, this uses Traefik v3 rule parser for which you can find the documentation here: https://doc.traefik.io/traefik/routing/routers/#rule, supported values are summarised here:
+           - ``Header(`key`, `value`)``
+           - ``HeaderRegexp(`key`, `regexp`)``
+           - ``Host(`example.com`)``
+           - ``HostRegexp(`^.+\.example\.com$`)``
+           - ``Method(`GET`)``
+           - ``Path(`/path`)``
+           - ``PathPrefix(`/products/`)``
+           - ``Query(`foo`, `bar`)``
+       - `whitelist` - optional, same usage as [`whitelist`](#whitelist)
 
    For example:
    ```
    # Allow requests that being with `/api/public` and contain the `Content-Type` header with a value of `application/json`
    rule.1.action = allow
-   rule.1.rule = PathPrefix(`/api/public`) && Headers(`Content-Type`, `application/json`)
+   rule.1.rule = PathPrefix(`/api/public`) && Header(`Content-Type`, `application/json`)
 
    # Allow requests that have the exact path `/public`
    rule.two.action = allow
@@ -388,7 +388,7 @@ You can restrict who can login with the following parameters:
 * `domain` - Use this to limit logins to a specific domain, e.g. test.com only
 * `whitelist` - Use this to only allow specific users to login e.g. thom@test.com only
 
-Note, if you pass both `whitelist` and `domain`, then the default behaviour is for only `whitelist` to be used and `domain` will be effectively ignored. You can allow users matching *either* `whitelist` or `domain` by passing the `match-whitelist-or-domain` parameter (this will be the default behaviour in v3). If you set `domains` or `whitelist` on a rule, the global configuration is ignored.
+Note, if you pass both `whitelist` and `domain`, then the default behaviour is for only `whitelist` to be used and `domain` will be effectively ignored. You can allow users matching *either* `whitelist` or `domain` by passing the `match-whitelist-or-domain` parameter. If you set `domains` or `whitelist` on a rule, the global configuration is ignored.
 
 ### Forwarded Headers
 
@@ -451,7 +451,7 @@ You can apply labels to selected containers:
 
 ```yaml
 whoami:
-  image: containous/whoami
+  image: traefik/whoami
   labels:
     - "traefik.http.routers.whoami.rule=Host(`whoami.example.com`)"
     - "traefik.http.routers.whoami.middlewares=traefik-forward-auth"
@@ -492,7 +492,7 @@ As the hostname in the `redirect_uri` is dynamically generated based on the orig
 
 #### Auth Host Mode
 
-This is an optional mode of operation that is useful when dealing with a large number of subdomains, it is activated by using the `auth-host` config option (see [this example docker-compose.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/swarm/docker-compose-auth-host.yml) or [this kubernetes example](https://github.com/madebymode/traefik-forward-auth/tree/master/examples/traefik-v2/kubernetes/advanced-separate-pod)).
+This is an optional mode of operation that is useful when dealing with a large number of subdomains, it is activated by using the `auth-host` config option (see [this example docker-compose.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/swarm/docker-compose-auth-host.yml) or [this kubernetes example](https://github.com/madebymode/traefik-forward-auth/tree/master/examples/traefik-v3/kubernetes/advanced-separate-pod)).
 
 For example, if you have a few applications: `app1.test.com`, `app2.test.com`, `appN.test.com`, adding every domain to Google's console can become laborious.
 To utilise an auth host, permit domain level cookies by setting the cookie domain to `test.com` then set the `auth-host` to: `auth.test.com`.
@@ -513,7 +513,7 @@ Two criteria must be met for an `auth-host` to be used:
 1. Request matches given `cookie-domain`
 2. `auth-host` is also subdomain of same `cookie-domain`
 
-Please note: For Auth Host mode to work, you must ensure that requests to your auth-host are routed to the traefik-forward-auth container, as demonstrated with the service labels in the [docker-compose-auth.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/swarm/docker-compose-auth-host.yml) example and the [ingressroute resource](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v2/kubernetes/advanced-separate-pod/traefik-forward-auth/ingress.yaml) in a kubernetes example.
+Please note: For Auth Host mode to work, you must ensure that requests to your auth-host are routed to the traefik-forward-auth container, as demonstrated with the service labels in the [docker-compose-auth.yml](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/swarm/docker-compose-auth-host.yml) example and the [ingressroute resource](https://github.com/madebymode/traefik-forward-auth/blob/master/examples/traefik-v3/kubernetes/advanced-separate-pod/traefik-forward-auth/ingress.yaml) in a kubernetes example.
 
 ### Logging Out
 

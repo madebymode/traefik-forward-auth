@@ -364,17 +364,17 @@ func TestServerDefaultProvider(t *testing.T) {
 	assert.Equal("/oidcauth", fwd.Path, "request with expired cookie should be redirected to oidc")
 }
 
-func TestServerRouteHeaders(t *testing.T) {
+func TestServerRouteHeader(t *testing.T) {
 	assert := assert.New(t)
 	config = newDefaultConfig()
 	config.Rules = map[string]*Rule{
 		"1": {
 			Action: "allow",
-			Rule:   "Headers(`X-Test`, `test123`)",
+			Rule:   "Header(`X-Test`, `test123`)",
 		},
 		"2": {
 			Action: "allow",
-			Rule:   "HeadersRegexp(`X-Test`, `test(456|789)`)",
+			Rule:   "HeaderRegexp(`X-Test`, `test(456|789)`)",
 		},
 	}
 
@@ -407,7 +407,7 @@ func TestServerRouteHost(t *testing.T) {
 		},
 		"2": {
 			Action: "allow",
-			Rule:   "HostRegexp(`sub{num:[0-9]}.example.com`)",
+			Rule:   "HostRegexp(`^sub[0-9]\\.example\\.com$`)",
 		},
 	}
 
@@ -488,7 +488,7 @@ func TestServerRouteQuery(t *testing.T) {
 	config.Rules = map[string]*Rule{
 		"1": {
 			Action: "allow",
-			Rule:   "Query(`q=test123`)",
+			Rule:   "Query(`q`, `test123`)",
 		},
 	}
 

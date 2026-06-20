@@ -1,13 +1,17 @@
 package tfa
 
 import (
+	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/madebymode/traefik-forward-auth/internal/provider"
 	"github.com/sirupsen/logrus"
-	muxhttp "github.com/traefik/traefik/v2/pkg/muxer/http"
+	"github.com/traefik/traefik/v3/pkg/rules"
 )
 
 func hostMatchesRedirectDomain(host, domain string) bool {
@@ -22,8 +26,16 @@ func hostMatchesRedirectDomain(host, domain string) bool {
 
 // Server contains muxer and handler methods
 type Server struct {
-	muxer *muxhttp.Muxer
+	routes         []route
+	defaultHandler http.Handler
 }
+
+type route struct {
+	matcher requestMatcher
+	handler http.Handler
+}
+
+type requestMatcher func(*http.Request) bool
 
 // NewServer creates a new server object and builds muxer
 func NewServer() *Server {
@@ -33,8 +45,19 @@ func NewServer() *Server {
 }
 
 func (s *Server) buildRoutes() {
-	var err error
-	s.muxer, err = muxhttp.NewMuxer()
+	parser, err := rules.NewParser([]string{
+		"ClientIP",
+		"Method",
+		"Host",
+		"HostRegexp",
+		"Path",
+		"PathRegexp",
+		"PathPrefix",
+		"Header",
+		"HeaderRegexp",
+		"Query",
+		"QueryRegexp",
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,25 +65,295 @@ func (s *Server) buildRoutes() {
 	// Let's build a muxer
 	for name, rule := range config.Rules {
 		matchRule := rule.formattedRule()
+		matcher, err := parseRule(parser, matchRule)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		if rule.Action == "allow" {
-			_ = s.muxer.AddRoute(matchRule, 1, s.AllowHandler(name))
+			s.routes = append(s.routes, route{matcher: matcher, handler: s.AllowHandler(name)})
 		} else {
-			_ = s.muxer.AddRoute(matchRule, 1, s.AuthHandler(rule.Provider, name))
+			s.routes = append(s.routes, route{matcher: matcher, handler: s.AuthHandler(rule.Provider, name)})
 		}
 	}
 
 	// Add callback handler
-	s.muxer.Handle(config.Path, s.AuthCallbackHandler())
+	matcher, err := parseRule(parser, pathRule(config.Path))
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.routes = append(s.routes, route{matcher: matcher, handler: s.AuthCallbackHandler()})
 
 	// Add logout handler
-	s.muxer.Handle(config.Path+"/logout", s.LogoutHandler())
+	matcher, err = parseRule(parser, pathRule(config.Path+"/logout"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.routes = append(s.routes, route{matcher: matcher, handler: s.LogoutHandler()})
 
 	// Add a default handler
 	if config.DefaultAction == "allow" {
-		s.muxer.NewRoute().Handler(s.AllowHandler("default"))
+		s.defaultHandler = s.AllowHandler("default")
 	} else {
-		s.muxer.NewRoute().Handler(s.AuthHandler(config.DefaultProvider, "default"))
+		s.defaultHandler = s.AuthHandler(config.DefaultProvider, "default")
 	}
+}
+
+func pathRule(path string) string {
+	return "Path(`" + path + "`)"
+}
+
+func parseRule(parser interface {
+	Parse(string) (interface{}, error)
+}, rule string) (requestMatcher, error) {
+	parsed, err := parser.Parse(rule)
+	if err != nil {
+		return nil, fmt.Errorf("parsing rule %s: %w", rule, err)
+	}
+
+	buildTree, ok := parsed.(rules.TreeBuilder)
+	if !ok {
+		return nil, fmt.Errorf("building rule tree for %s", rule)
+	}
+
+	return compileRule(buildTree())
+}
+
+func compileRule(tree *rules.Tree) (requestMatcher, error) {
+	switch tree.Matcher {
+	case "and":
+		left, err := compileRule(tree.RuleLeft)
+		if err != nil {
+			return nil, err
+		}
+		right, err := compileRule(tree.RuleRight)
+		if err != nil {
+			return nil, err
+		}
+		return func(r *http.Request) bool { return left(r) && right(r) }, nil
+	case "or":
+		left, err := compileRule(tree.RuleLeft)
+		if err != nil {
+			return nil, err
+		}
+		right, err := compileRule(tree.RuleRight)
+		if err != nil {
+			return nil, err
+		}
+		return func(r *http.Request) bool { return left(r) || right(r) }, nil
+	default:
+		matcher, err := compileMatcher(tree.Matcher, tree.Value)
+		if err != nil {
+			return nil, err
+		}
+		if tree.Not {
+			return func(r *http.Request) bool { return !matcher(r) }, nil
+		}
+		return matcher, nil
+	}
+}
+
+func compileMatcher(name string, values []string) (requestMatcher, error) {
+	switch name {
+	case "ClientIP":
+		return clientIPMatcher(values)
+	case "Method":
+		if err := expectMatcherArgs(name, values, 1); err != nil {
+			return nil, err
+		}
+		method := strings.ToUpper(values[0])
+		return func(r *http.Request) bool { return r.Method == method }, nil
+	case "Host":
+		if err := expectMatcherArgs(name, values, 1); err != nil {
+			return nil, err
+		}
+		host := strings.ToLower(values[0])
+		if !isASCII(host) {
+			return nil, fmt.Errorf("invalid value %q for Host matcher, non-ASCII characters are not allowed", host)
+		}
+		return func(r *http.Request) bool { return domainMatchHostExpression(canonicalHost(r.Host), host) }, nil
+	case "HostRegexp":
+		if err := expectMatcherArgs(name, values, 1); err != nil {
+			return nil, err
+		}
+		re, err := regexp.Compile(values[0])
+		if err != nil {
+			return nil, fmt.Errorf("compiling HostRegexp matcher: %w", err)
+		}
+		return func(r *http.Request) bool { return re.MatchString(canonicalHost(r.Host)) }, nil
+	case "Path":
+		if err := expectMatcherArgs(name, values, 1); err != nil {
+			return nil, err
+		}
+		path := values[0]
+		if !strings.HasPrefix(path, "/") {
+			return nil, fmt.Errorf("path %q does not start with a '/'", path)
+		}
+		return func(r *http.Request) bool { return r.URL.Path == path }, nil
+	case "PathRegexp":
+		if err := expectMatcherArgs(name, values, 1); err != nil {
+			return nil, err
+		}
+		re, err := regexp.Compile(values[0])
+		if err != nil {
+			return nil, fmt.Errorf("compiling PathRegexp matcher: %w", err)
+		}
+		return func(r *http.Request) bool { return re.MatchString(r.URL.Path) }, nil
+	case "PathPrefix":
+		if err := expectMatcherArgs(name, values, 1); err != nil {
+			return nil, err
+		}
+		prefix := values[0]
+		if !strings.HasPrefix(prefix, "/") {
+			return nil, fmt.Errorf("path %q does not start with a '/'", prefix)
+		}
+		return func(r *http.Request) bool { return strings.HasPrefix(r.URL.Path, prefix) }, nil
+	case "Header":
+		if err := expectMatcherArgs(name, values, 2); err != nil {
+			return nil, err
+		}
+		key, value := http.CanonicalHeaderKey(values[0]), values[1]
+		return func(r *http.Request) bool {
+			for _, got := range r.Header.Values(key) {
+				if got == value {
+					return true
+				}
+			}
+			return false
+		}, nil
+	case "HeaderRegexp":
+		if err := expectMatcherArgs(name, values, 2); err != nil {
+			return nil, err
+		}
+		key := http.CanonicalHeaderKey(values[0])
+		re, err := regexp.Compile(values[1])
+		if err != nil {
+			return nil, fmt.Errorf("compiling HeaderRegexp matcher: %w", err)
+		}
+		return func(r *http.Request) bool {
+			for _, got := range r.Header.Values(key) {
+				if re.MatchString(got) {
+					return true
+				}
+			}
+			return false
+		}, nil
+	case "Query":
+		if err := expectMatcherArgs(name, values, 1, 2); err != nil {
+			return nil, err
+		}
+		key := values[0]
+		value := ""
+		if len(values) == 2 {
+			value = values[1]
+		}
+		return func(r *http.Request) bool {
+			for _, got := range r.URL.Query()[key] {
+				if got == value {
+					return true
+				}
+			}
+			return false
+		}, nil
+	case "QueryRegexp":
+		if err := expectMatcherArgs(name, values, 1, 2); err != nil {
+			return nil, err
+		}
+		key := values[0]
+		pattern := ""
+		if len(values) == 2 {
+			pattern = values[1]
+		}
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("compiling QueryRegexp matcher: %w", err)
+		}
+		return func(r *http.Request) bool {
+			for _, got := range r.URL.Query()[key] {
+				if re.MatchString(got) {
+					return true
+				}
+			}
+			return false
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported matcher %s", name)
+	}
+}
+
+func expectMatcherArgs(name string, values []string, valid ...int) error {
+	for _, n := range valid {
+		if len(values) == n {
+			return nil
+		}
+	}
+	return fmt.Errorf("unexpected number of parameters for %s matcher; got %d, expected one of %v", name, len(values), valid)
+}
+
+func clientIPMatcher(values []string) (requestMatcher, error) {
+	if err := expectMatcherArgs("ClientIP", values, 1); err != nil {
+		return nil, err
+	}
+
+	prefix, err := netip.ParsePrefix(values[0])
+	if err != nil {
+		addr, addrErr := netip.ParseAddr(values[0])
+		if addrErr != nil {
+			return nil, fmt.Errorf("parsing ClientIP matcher: %w", err)
+		}
+		prefix = netip.PrefixFrom(addr, addr.BitLen())
+	}
+
+	return func(r *http.Request) bool {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr
+		}
+		addr, err := netip.ParseAddr(host)
+		return err == nil && prefix.Contains(addr)
+	}, nil
+}
+
+func canonicalHost(host string) string {
+	if strings.Contains(host, ":") {
+		if parsed, _, err := net.SplitHostPort(host); err == nil {
+			host = parsed
+		} else if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			host = host[1 : len(host)-1]
+		}
+	}
+	return strings.ToLower(strings.TrimSpace(host))
+}
+
+func isASCII(s string) bool {
+	for i := range len(s) {
+		if s[i] > 127 {
+			return false
+		}
+	}
+	return true
+}
+
+func domainMatchHostExpression(domain, hostExpr string) bool {
+	if strings.HasPrefix(hostExpr, "*") {
+		labels := strings.Split(domain, ".")
+		if len(labels) == 0 {
+			return false
+		}
+		labels[0] = "*"
+		return strings.EqualFold(hostExpr, strings.Join(labels, "."))
+	}
+
+	if strings.EqualFold(domain, hostExpr) {
+		return true
+	}
+	if strings.HasSuffix(hostExpr, ".") && strings.EqualFold(domain, strings.TrimSuffix(hostExpr, ".")) {
+		return true
+	}
+	if strings.HasSuffix(domain, ".") && strings.EqualFold(strings.TrimSuffix(domain, "."), hostExpr) {
+		return true
+	}
+	return false
 }
 
 // RootHandler Overwrites the request method, host and URL with those from the
@@ -75,8 +368,14 @@ func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 		r.URL, _ = url.Parse(r.Header.Get("X-Forwarded-Uri"))
 	}
 
-	// Pass to mux
-	s.muxer.ServeHTTP(w, r)
+	for _, route := range s.routes {
+		if route.matcher(r) {
+			route.handler.ServeHTTP(w, r)
+			return
+		}
+	}
+
+	s.defaultHandler.ServeHTTP(w, r)
 }
 
 // AllowHandler Allows requests
