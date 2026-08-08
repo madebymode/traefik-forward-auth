@@ -34,8 +34,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/thomseddon/go-flags v1.4.1-0.20190507184247-a3629c504486 h1:hk17f4niAl4e6viTj2uf/fpfACa6QPmrtMDAo+1tifE=
 github.com/thomseddon/go-flags v1.4.1-0.20190507184247-a3629c504486/go.mod h1:NK9eZpNBmSKVxvyB/MExg6jW0Bo9hQyAuCP+b8MJFow=
-github.com/traefik/traefik/v3 v3.7.8 h1:fgLRGI4WQFjvSaxoscyV4pjBu+rBdtc24NWgyTy4na0=
-github.com/traefik/traefik/v3 v3.7.8/go.mod h1:I+qdMIbkGfk/NIIiOzsctn52SDoWX4Onuxy2yOFOCvE=
+github.com/traefik/traefik/v3 v3.7.10 h1:M1nA8OnQy59LqfDtEpsmXfAtth9NrmXdC2i+miAWgI4=
+github.com/traefik/traefik/v3 v3.7.10/go.mod h1:gBCEscKFoRsPm1vwJuDqKNwwfgRBJwjNFPuvpnbHuTk=
 github.com/vulcand/predicate v1.3.0 h1:jtNe4PHbLJ649dR7Gl+MSAzUhLGtLspAkWlSjoOiXg8=
 github.com/vulcand/predicate v1.3.0/go.mod h1:opzv9MetRuMNnuoPeTSWtwzjcXsxQC00/fuWzkPTn4s=
 golang.org/x/crypto v0.54.0 h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=
