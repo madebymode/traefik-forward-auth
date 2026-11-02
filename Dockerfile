@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-	go build -trimpath -ldflags="-s -w" -o /out/traefik-forward-auth ./cmd
+  go build -trimpath -ldflags="-s -w" -o /out/traefik-forward-auth ./cmd
 
 FROM scratch
 
