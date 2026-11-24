@@ -5,8 +5,8 @@ github.com/go-jose/go-jose/v4 v4.1.9 h1:pKfeQkig1NmgK4hJrZYXLEYURXfoJB61Larw0uIW
 github.com/go-jose/go-jose/v4 v4.1.9/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-github.com/gravitational/trace v1.5.4 h1:nMmF7alwvNiQJhC817Hhmgm95bzKOXbnxvkickTkRDY=
-github.com/gravitational/trace v1.5.4/go.mod h1:/uCbC3ukVU8Pdrh8+3vNLyyE1aGheBWpGGrMnwIK80E=
+github.com/gravitational/trace v1.6.0 h1:P04dV3SIIucUE0XR+4Hp43L9P37PtdMjv42UiqV0lQs=
+github.com/gravitational/trace v1.6.0/go.mod h1:of+Vd36QkZ3VE0rNLAhgu4V41LF3cB9I0hkQWKFm5uM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pquerna/cachecontrol v0.2.0 h1:vBXSNuE5MYP9IJ5kjsdo8uq+w41jSPgvba2DEnkRx9k=
 github.com/pquerna/cachecontrol v0.2.0/go.mod h1:NrUG3Z7Rdu85UNR3vm7SOsl1nFIeSiQnrHV5K9mBcUI=
@@ -18,8 +18,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/thomseddon/go-flags v1.4.1-0.20190507184247-a3629c504486 h1:hk17f4niAl4e6viTj2uf/fpfACa6QPmrtMDAo+1tifE=
 github.com/thomseddon/go-flags v1.4.1-0.20190507184247-a3629c504486/go.mod h1:NK9eZpNBmSKVxvyB/MExg6jW0Bo9hQyAuCP+b8MJFow=
-github.com/traefik/traefik/v3 v3.7.19 h1:QsO+kzWt479EZ42SBZr177ONm2alX2bBaEWsp5VdOCw=
-github.com/traefik/traefik/v3 v3.7.19/go.mod h1:cWOaosHycDsgqDQ3goeY6UxE47EfJ74aDFwwgsFy5wY=
+github.com/traefik/traefik/v3 v3.8.0 h1:sjLBpaUdiWopLamNPITMQEB+Zgx1+4IV6DYnjcR46Vw=
+github.com/traefik/traefik/v3 v3.8.0/go.mod h1:j6F5cyJz3YA7mFtrSiYRXGvOCbHEzHA9IeR6mq8HnOQ=
 github.com/vulcand/predicate v1.3.0 h1:jtNe4PHbLJ649dR7Gl+MSAzUhLGtLspAkWlSjoOiXg8=
 github.com/vulcand/predicate v1.3.0/go.mod h1:opzv9MetRuMNnuoPeTSWtwzjcXsxQC00/fuWzkPTn4s=
 go.yaml.in/yaml/v3 v3.0.6 h1:zcDfvjXEqTQmpjniUBLc91xYJMB2c4QOFxEF/LCEckM=

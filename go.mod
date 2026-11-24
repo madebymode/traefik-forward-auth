@@ -8,12 +8,12 @@ require (
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/thomseddon/go-flags v1.4.1-0.20190507184247-a3629c504486
-	github.com/traefik/traefik/v3 v3.7.19
+	github.com/traefik/traefik/v3 v3.8.0
 	golang.org/x/oauth2 v0.38.0
 )
 
 require (
-	github.com/gravitational/trace v1.5.4 // indirect
+	github.com/gravitational/trace v1.6.0 // indirect
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
 	github.com/vulcand/predicate v1.3.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
